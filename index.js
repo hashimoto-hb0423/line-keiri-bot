@@ -41,7 +41,7 @@ async function handleImage(replyToken, messageId) {
     const arrayBuffer = await response.arrayBuffer();
     const imageData = Buffer.from(arrayBuffer).toString('base64');
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent([
       {
         inlineData: {
@@ -76,7 +76,7 @@ async function handleImage(replyToken, messageId) {
 
 async function handleText(replyToken, text) {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent(
       `あなたは経理の専門家アシスタントです。以下の質問に日本語で答えてください：\n${text}`
     );
