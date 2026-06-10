@@ -1,6 +1,6 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Tesseract = require('tesseract.js');
 
 const app = express();
 
@@ -13,8 +13,6 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
   res.status(200).send('OK');
   const events = req.body.events;
@@ -23,9 +21,7 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
 
 async function handleEvent(event) {
   if (event.type !== 'message') return;
-
   const { message, replyToken } = event;
-
   if (message.type === 'image') {
     await handleImage(replyToken, message.id);
   } else if (message.type === 'text') {
@@ -38,56 +34,35 @@ async function handleImage(replyToken, messageId) {
     const response = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
       headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
     });
-    const arrayBuffer = await response.arrayBuffer();
-    const imageData = Buffer.from(arrayBuffer).toString('base64');
+    const buffer = Buffer.from(await response.arrayBuffer());
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: imageData,
-        },
-      },
-      `この領収書・請求書を読み取って以下の形式で出力してください：
+    const { data: { text } } = await Tesseract.recognize(buffer, 'jpn+eng', {
+      logger: () => {},
+    });
 
-【日付】
-【取引先・店名】
-【金額（税込）】
-【内容・品目】
-【支払方法】（わかる場合）
+    if (!text.trim()) {
+      throw new Error('テキストを読み取れませんでした');
+    }
 
-弥生会計インポート用CSV形式（摘要,金額,日付）も合わせて出力してください。`,
-    ]);
-
-    const text = result.response.text();
+    const reply = `読み取り結果:\n\n${text.trim()}`;
     await client.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text }],
+      messages: [{ type: 'text', text: reply.substring(0, 5000) }],
     });
   } catch (err) {
-    console.error('画像処理エラー:', err.message, err.stack);
+    console.error('画像処理エラー:', err.message);
     await client.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: `エラー: ${err.message}` }],
+      messages: [{ type: 'text', text: '読み取りに失敗しました。もう一度お試しください。' }],
     });
   }
 }
 
 async function handleText(replyToken, text) {
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent(
-      `あなたは経理の専門家アシスタントです。以下の質問に日本語で答えてください：\n${text}`
-    );
-    const reply = result.response.text();
-    await client.replyMessage({
-      replyToken,
-      messages: [{ type: 'text', text: reply }],
-    });
-  } catch (err) {
-    console.error(err);
-  }
+  await client.replyMessage({
+    replyToken,
+    messages: [{ type: 'text', text: '領収書や請求書の写真を送ってください。読み取ります。' }],
+  });
 }
 
 const PORT = process.env.PORT || 3000;
