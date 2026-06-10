@@ -66,10 +66,10 @@ async function handleImage(replyToken, messageId) {
       messages: [{ type: 'text', text }],
     });
   } catch (err) {
-    console.error(err);
+    console.error('画像処理エラー:', err.message, err.stack);
     await client.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: '読み取りに失敗しました。もう一度お試しください。' }],
+      messages: [{ type: 'text', text: `エラー: ${err.message}` }],
     });
   }
 }
