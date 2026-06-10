@@ -35,12 +35,11 @@ async function handleEvent(event) {
 
 async function handleImage(replyToken, messageId) {
   try {
-    const stream = await client.getMessageContent(messageId);
-    const chunks = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    const imageData = Buffer.concat(chunks).toString('base64');
+    const response = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
+    });
+    const arrayBuffer = await response.arrayBuffer();
+    const imageData = Buffer.from(arrayBuffer).toString('base64');
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent([
